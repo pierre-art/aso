@@ -1,0 +1,104 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+public class HostingManager {
+
+    public boolean crearCliente(String nombreSitio, String usuarioFtp, String passwordFtp, int cuota,
+                                String gestorBd, String nombreBd, String usuarioBd, String passwordBd) {
+        try {
+            // 1. Crear carpeta del cliente y configurar permisos de acceso
+            if (!crearDirectorioCliente(nombreSitio, usuarioFtp)) return false;
+
+            // 2. Crear cuenta FTP
+            if (!crearCuentaFTP(usuarioFtp, passwordFtp)) return false;
+
+            // 3. Configurar cuota de disco
+            if (!configurarCuotaDisco(usuarioFtp, cuota)) return false;
+
+            // 4. Crear base de datos
+            if (!crearBaseDeDatos(gestorBd, nombreBd, usuarioBd, passwordBd)) return false;
+
+            // 5. Configurar virtual host en Apache
+            if (!configurarVirtualHost(nombreSitio, usuarioFtp)) return false;
+
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean crearDirectorioCliente(String nombreSitio, String usuarioFtp) {
+        String path = "/srv/www/" + usuarioFtp;
+        String command = "sudo mkdir -p " + path + " && sudo chown " + usuarioFtp + ":" + usuarioFtp + " " + path;
+        return ejecutarComando(command);
+    }
+
+    private boolean crearCuentaFTP(String usuarioFtp, String passwordFtp) {
+        String command = "sudo useradd -m -d /srv/www/" + usuarioFtp + " -s /sbin/nologin " + usuarioFtp +
+                " && echo \"" + usuarioFtp + ":" + passwordFtp + "\" | sudo chpasswd";
+        return ejecutarComando(command);
+    }
+
+    private boolean configurarCuotaDisco(String usuarioFtp, int cuotaMB) {
+        String command = "sudo setquota -u " + usuarioFtp + " " + cuotaMB + "M " + cuotaMB + "M 0 0 /";
+        return ejecutarComando(command);
+    }
+
+    private boolean crearBaseDeDatos(String gestorBd, String nombreBd, String usuarioBd, String passwordBd) {
+        String command = "";
+        if ("MySQL".equalsIgnoreCase(gestorBd) || "MariaDB".equalsIgnoreCase(gestorBd)) {
+            command = "sudo mysql -e \"CREATE DATABASE " + nombreBd + "; " +
+                    "CREATE USER '" + usuarioBd + "'@'localhost' IDENTIFIED BY '" + passwordBd + "'; " +
+                    "GRANT ALL PRIVILEGES ON " + nombreBd + ".* TO '" + usuarioBd + "'@'localhost';\"";
+        } else if ("PostgreSQL".equalsIgnoreCase(gestorBd)) {
+            command = "sudo -u postgres psql -c \"CREATE DATABASE " + nombreBd + "; " +
+                    "CREATE USER " + usuarioBd + " WITH ENCRYPTED PASSWORD '" + passwordBd + "'; " +
+                    "GRANT ALL PRIVILEGES ON DATABASE " + nombreBd + " TO " + usuarioBd + ";\"";
+        }
+        return ejecutarComando(command);
+    }
+
+    private boolean configurarVirtualHost(String nombreSitio, String usuarioFtp) {
+        String virtualHostConfig = "<VirtualHost *:80>\n" +
+                "    ServerName " + nombreSitio + "\n" +
+                "    DocumentRoot /srv/www/" + usuarioFtp + "\n" +
+                "    <Directory /srv/www/" + usuarioFtp + ">\n" +
+                "        Options Indexes FollowSymLinks\n" +
+                "        AllowOverride All\n" +
+                "        Require all granted\n" +
+                "    </Directory>\n" +
+                "    ErrorLog ${APACHE_LOG_DIR}/" + usuarioFtp + "_error.log\n" +
+                "    CustomLog ${APACHE_LOG_DIR}/" + usuarioFtp + "_access.log combined\n" +
+                "</VirtualHost>";
+        
+        String command = "echo '" + virtualHostConfig + "' | sudo tee /etc/apache2/sites-available/" + usuarioFtp + ".conf " +
+                "&& sudo a2ensite " + usuarioFtp + ".conf && sudo systemctl reload apache2";
+        return ejecutarComando(command);
+    }
+
+    private boolean ejecutarComando(String command) {
+        try {
+            Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", command});
+            process.waitFor();
+            
+            // Mostrar la salida y cualquier error
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            while ((line = errorReader.readLine()) != null) {
+                System.err.println(line);
+            }
+
+            return process.exitValue() == 0;
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+}

@@ -1,0 +1,147 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class HostingManagerApp extends JFrame {
+    private JTextField sitioField;
+    private JTextField ftpUserField;
+    private JPasswordField ftpPasswordField;
+    private JTextField cuotaField;
+    private JComboBox<String> dbSelector;
+    private JTextField dbNameField;
+    private JTextField dbUserField;
+    private JPasswordField dbPasswordField;
+    private HostingManager manager;
+
+    public HostingManagerApp() {
+        // Configuración básica de la ventana
+        setTitle("Administrador de Hosting Web");
+        setSize(500, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        
+        // Inicializar el HostingManager
+        manager = new HostingManager();
+
+        // Panel principal con Layout de GridBag
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(245, 245, 245));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Etiqueta y campo para Nombre del Sitio
+        gbc.gridx = 0; gbc.gridy = 0;
+        panel.add(new JLabel("Nombre del Sitio:"), gbc);
+        gbc.gridx = 1;
+        sitioField = new JTextField(20);
+        panel.add(sitioField, gbc);
+
+        // Etiqueta y campo para Usuario FTP
+        gbc.gridx = 0; gbc.gridy = 1;
+        panel.add(new JLabel("Usuario FTP:"), gbc);
+        gbc.gridx = 1;
+        ftpUserField = new JTextField(20);
+        panel.add(ftpUserField, gbc);
+
+        // Etiqueta y campo para Contraseña FTP
+        gbc.gridx = 0; gbc.gridy = 2;
+        panel.add(new JLabel("Contraseña FTP:"), gbc);
+        gbc.gridx = 1;
+        ftpPasswordField = new JPasswordField(20);
+        panel.add(ftpPasswordField, gbc);
+
+        // Etiqueta y campo para Cuota
+        gbc.gridx = 0; gbc.gridy = 3;
+        panel.add(new JLabel("Cuota (MB):"), gbc);
+        gbc.gridx = 1;
+        cuotaField = new JTextField(20);
+        panel.add(cuotaField, gbc);
+
+        // Etiqueta y selector para Tipo de Base de Datos
+        gbc.gridx = 0; gbc.gridy = 4;
+        panel.add(new JLabel("Gestor de Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbSelector = new JComboBox<>(new String[]{"MySQL", "MariaDB", "PostgreSQL"});
+        panel.add(dbSelector, gbc);
+
+        // Etiqueta y campo para Nombre de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 5;
+        panel.add(new JLabel("Nombre de la Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbNameField = new JTextField(20);
+        panel.add(dbNameField, gbc);
+
+        // Etiqueta y campo para Usuario de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 6;
+        panel.add(new JLabel("Usuario Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbUserField = new JTextField(20);
+        panel.add(dbUserField, gbc);
+
+        // Etiqueta y campo para Contraseña de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 7;
+        panel.add(new JLabel("Contraseña Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbPasswordField = new JPasswordField(20);
+        panel.add(dbPasswordField, gbc);
+
+        // Botón para Crear Usuario
+        gbc.gridx = 0; gbc.gridy = 8; gbc.gridwidth = 2;
+        JButton crearBtn = new JButton("Crear Usuario");
+        crearBtn.setBackground(new Color(76, 175, 80));
+        crearBtn.setForeground(Color.BLACK);
+        crearBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        crearBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                crearCliente();
+            }
+        });
+        panel.add(crearBtn, gbc);
+
+        add(panel);
+    }
+
+    private void crearCliente() {
+        String nombreSitio = sitioField.getText();
+        String usuarioFtp = ftpUserField.getText();
+        String passwordFtp = new String(ftpPasswordField.getPassword());
+        String cuotaStr = cuotaField.getText();
+        String gestorBd = (String) dbSelector.getSelectedItem();
+        String nombreBd = dbNameField.getText();
+        String usuarioBd = dbUserField.getText();
+        String passwordBd = new String(dbPasswordField.getPassword());
+
+        // Validación de campos
+        if (nombreSitio.isEmpty() || usuarioFtp.isEmpty() || passwordFtp.isEmpty() || cuotaStr.isEmpty() || nombreBd.isEmpty() || usuarioBd.isEmpty() || passwordBd.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Todos los campos son requeridos.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int cuota;
+        try {
+            cuota = Integer.parseInt(cuotaStr);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "La cuota debe ser un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Llamada al HostingManager para crear el cliente
+        boolean success = manager.crearCliente(nombreSitio, usuarioFtp, passwordFtp, cuota, gestorBd, nombreBd, usuarioBd, passwordBd);
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Cliente creado exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Hubo un error al crear el cliente.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            HostingManagerApp app = new HostingManagerApp();
+            app.setVisible(true);
+        });
+    }
+}

@@ -1,104 +1,91 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HostingManager {
+    private List<Cliente> clientes;
+    private List<Particion> particiones;
 
-    public boolean crearCliente(String nombreSitio, String usuarioFtp, String passwordFtp, int cuota,
-                                String gestorBd, String nombreBd, String usuarioBd, String passwordBd) {
-        try {
-            // 1. Crear carpeta del cliente y configurar permisos de acceso
-            if (!crearDirectorioCliente(nombreSitio, usuarioFtp)) return false;
+    public HostingManager() {
+        clientes = new ArrayList<>();
+        particiones = new ArrayList<>();
+    }
 
-            // 2. Crear cuenta FTP
-            if (!crearCuentaFTP(usuarioFtp, passwordFtp)) return false;
-
-            // 3. Configurar cuota de disco
-            if (!configurarCuotaDisco(usuarioFtp, cuota)) return false;
-
-            // 4. Crear base de datos
-            if (!crearBaseDeDatos(gestorBd, nombreBd, usuarioBd, passwordBd)) return false;
-
-            // 5. Configurar virtual host en Apache
-            if (!configurarVirtualHost(nombreSitio, usuarioFtp)) return false;
-
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+    public boolean crearCliente(String nombreSitio, String usuarioFtp, String passwordFtp, int cuota, 
+                                String disco, String gestorBd, String nombreBd, 
+                                String usuarioBd, String passwordBd) {
+        // Verificar si la cuota excede el espacio disponible en el disco
+        int espacioDisponible = calcularEspacioDisponible(disco);
+        if (cuota > espacioDisponible) {
+            System.err.println("Error: Cuota excede el espacio disponible en el disco.");
             return false;
         }
+
+        // Crear una nueva partición para el cliente
+        Particion particion = new Particion(disco, cuota);
+        particiones.add(particion);
+
+        // Crear el cliente asociado con la partición
+        Cliente nuevoCliente = new Cliente(nombreSitio, usuarioFtp, passwordFtp, gestorBd, nombreBd, usuarioBd, passwordBd, particion);
+        clientes.add(nuevoCliente);
+
+        System.out.println("Cliente creado exitosamente con partición asignada.");
+        return true;
     }
 
-    private boolean crearDirectorioCliente(String nombreSitio, String usuarioFtp) {
-        String path = "/srv/www/" + usuarioFtp;
-        String command = "sudo mkdir -p " + path + " && sudo chown " + usuarioFtp + ":" + usuarioFtp + " " + path;
-        return ejecutarComando(command);
+    private int calcularEspacioDisponible(String disco) {
+        // Simulación de cálculo de espacio. En un sistema real, obtendría esta información del sistema operativo.
+        int espacioTotal = 100000; // Espacio total en MB (simulado)
+        int espacioUsado = particiones.stream()
+                                       .filter(p -> p.getDisco().equals(disco))
+                                       .mapToInt(Particion::getCuota)
+                                       .sum();
+        return espacioTotal - espacioUsado;
+    }
+}
+
+// Clase Cliente
+class Cliente {
+    private String nombreSitio;
+    private String usuarioFtp;
+    private String passwordFtp;
+    private String gestorBd;
+    private String nombreBd;
+    private String usuarioBd;
+    private String passwordBd;
+    private Particion particion;
+
+    public Cliente(String nombreSitio, String usuarioFtp, String passwordFtp, 
+                   String gestorBd, String nombreBd, String usuarioBd, 
+                   String passwordBd, Particion particion) {
+        this.nombreSitio = nombreSitio;
+        this.usuarioFtp = usuarioFtp;
+        this.passwordFtp = passwordFtp;
+        this.gestorBd = gestorBd;
+        this.nombreBd = nombreBd;
+        this.usuarioBd = usuarioBd;
+        this.passwordBd = passwordBd;
+        this.particion = particion;
     }
 
-    private boolean crearCuentaFTP(String usuarioFtp, String passwordFtp) {
-        String command = "sudo useradd -m -d /srv/www/" + usuarioFtp + " -s /sbin/nologin " + usuarioFtp +
-                " && echo \"" + usuarioFtp + ":" + passwordFtp + "\" | sudo chpasswd";
-        return ejecutarComando(command);
+    // Getters y setters (puedes generarlos si es necesario)
+}
+
+// Clase Particion
+class Particion {
+    private String disco;
+    private int cuota;
+
+    public Particion(String disco, int cuota) {
+        this.disco = disco;
+        this.cuota = cuota;
     }
 
-    private boolean configurarCuotaDisco(String usuarioFtp, int cuotaMB) {
-        String command = "sudo setquota -u " + usuarioFtp + " " + cuotaMB + "M " + cuotaMB + "M 0 0 /";
-        return ejecutarComando(command);
+    public String getDisco() {
+        return disco;
     }
 
-    private boolean crearBaseDeDatos(String gestorBd, String nombreBd, String usuarioBd, String passwordBd) {
-        String command = "";
-        if ("MySQL".equalsIgnoreCase(gestorBd) || "MariaDB".equalsIgnoreCase(gestorBd)) {
-            command = "sudo mysql -e \"CREATE DATABASE " + nombreBd + "; " +
-                    "CREATE USER '" + usuarioBd + "'@'localhost' IDENTIFIED BY '" + passwordBd + "'; " +
-                    "GRANT ALL PRIVILEGES ON " + nombreBd + ".* TO '" + usuarioBd + "'@'localhost';\"";
-        } else if ("PostgreSQL".equalsIgnoreCase(gestorBd)) {
-            command = "sudo -u postgres psql -c \"CREATE DATABASE " + nombreBd + "; " +
-                    "CREATE USER " + usuarioBd + " WITH ENCRYPTED PASSWORD '" + passwordBd + "'; " +
-                    "GRANT ALL PRIVILEGES ON DATABASE " + nombreBd + " TO " + usuarioBd + ";\"";
-        }
-        return ejecutarComando(command);
-    }
-
-    private boolean configurarVirtualHost(String nombreSitio, String usuarioFtp) {
-        String virtualHostConfig = "<VirtualHost *:80>\n" +
-                "    ServerName " + nombreSitio + "\n" +
-                "    DocumentRoot /srv/www/" + usuarioFtp + "\n" +
-                "    <Directory /srv/www/" + usuarioFtp + ">\n" +
-                "        Options Indexes FollowSymLinks\n" +
-                "        AllowOverride All\n" +
-                "        Require all granted\n" +
-                "    </Directory>\n" +
-                "    ErrorLog ${APACHE_LOG_DIR}/" + usuarioFtp + "_error.log\n" +
-                "    CustomLog ${APACHE_LOG_DIR}/" + usuarioFtp + "_access.log combined\n" +
-                "</VirtualHost>";
-        
-        String command = "echo '" + virtualHostConfig + "' | sudo tee /etc/apache2/sites-available/" + usuarioFtp + ".conf " +
-                "&& sudo a2ensite " + usuarioFtp + ".conf && sudo systemctl reload apache2";
-        return ejecutarComando(command);
-    }
-
-    private boolean ejecutarComando(String command) {
-        try {
-            Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", command});
-            process.waitFor();
-
-            // Mostrar la salida y cualquier error
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-            while ((line = errorReader.readLine()) != null) {
-                System.err.println(line);
-            }
-
-            return process.exitValue() == 0;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
+    public int getCuota() {
+        return cuota;
     }
 }
         

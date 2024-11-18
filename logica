@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 
 public class HostingManager {
@@ -82,7 +81,7 @@ public class HostingManager {
         try {
             Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", command});
             process.waitFor();
-            
+
             // Mostrar la salida y cualquier error
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -96,9 +95,10 @@ public class HostingManager {
             }
 
             return process.exitValue() == 0;
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 }
+        

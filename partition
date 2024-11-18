@@ -1,0 +1,66 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class PartitionManager {
+
+    public boolean crearParticion(String disco, String inicio, String fin, String sistemaArchivos, String puntoMontaje) {
+        try {
+            // 1. Crear partición
+            String comandoCrearParticion = "echo -e \"n\np\n\n" + inicio + "\n" + fin + "\nw\" | sudo fdisk " + disco;
+            if (!ejecutarComando(comandoCrearParticion)) return false;
+
+            // 2. Formatear partición
+            String particion = disco + "1"; // Ejemplo: primera partición
+            String comandoFormatear = "sudo mkfs." + sistemaArchivos + " " + particion;
+            if (!ejecutarComando(comandoFormatear)) return false;
+
+            // 3. Montar partición
+            String comandoMontar = "sudo mkdir -p " + puntoMontaje + " && sudo mount " + particion + " " + puntoMontaje;
+            return ejecutarComando(comandoMontar);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public String listarDiscos() {
+        StringBuilder resultado = new StringBuilder();
+        try {
+            String comando = "lsblk";
+            Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", comando});
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                resultado.append(line).append("\n");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error al listar discos.";
+        }
+        return resultado.toString();
+    }
+
+    private boolean ejecutarComando(String command) {
+        try {
+            Process process = Runtime.getRuntime().exec(new String[]{"bash", "-c", command});
+            process.waitFor();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            while ((line = errorReader.readLine()) != null) {
+                System.err.println(line);
+            }
+
+            return process.exitValue() == 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+}

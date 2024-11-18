@@ -1,126 +1,185 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-public class HostingPartitionManagerUI {
+public class HostingManagerApp extends JFrame {
+    private JTextField sitioField;
+    private JTextField ftpUserField;
+    private JPasswordField ftpPasswordField;
+    private JTextField cuotaField;
+    private JComboBox<String> dbSelector;
+    private JTextField dbNameField;
+    private JTextField dbUserField;
+    private JPasswordField dbPasswordField;
+    private JComboBox<String> discoSelector;
+    private HostingManager manager;
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(HostingPartitionManagerUI::createAndShowGUI);
-    }
+    public HostingManagerApp() {
+        // Configuración básica de la ventana
+        setTitle("Administrador de Hosting Web");
+        setSize(600, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
 
-    private static void createAndShowGUI() {
-        JFrame frame = new JFrame("Gestión de Hosting y Particiones");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(800, 600);
+        // Inicializar el HostingManager
+        manager = new HostingManager();
 
+        // Crear pestañas
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        // Tab 1: Gestión de Hosting
-        JPanel hostingPanel = createHostingPanel();
-        tabbedPane.addTab("Gestión de Hosting", hostingPanel);
+        // Pestaña "Crear Cliente"
+        JPanel clientePanel = crearClientePanel();
+        tabbedPane.addTab("Crear Cliente", clientePanel);
 
-        // Tab 2: Gestión de Particiones
-        JPanel partitionPanel = createPartitionPanel();
-        tabbedPane.addTab("Gestión de Particiones", partitionPanel);
+        // Pestaña "Particiones de Disco"
+        JPanel particionesPanel = crearParticionesPanel();
+        tabbedPane.addTab("Particiones de Disco", particionesPanel);
 
-        frame.add(tabbedPane);
-        frame.setVisible(true);
+        // Agregar pestañas al frame principal
+        add(tabbedPane);
     }
 
-    private static JPanel createHostingPanel() {
-        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+    private JPanel crearClientePanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(245, 245, 245));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Campos para Gestión de Hosting
-        JTextField siteNameField = new JTextField();
-        JTextField ftpUserField = new JTextField();
-        JPasswordField ftpPasswordField = new JPasswordField();
-        JTextField quotaField = new JTextField();
-        JComboBox<String> dbTypeBox = new JComboBox<>(new String[]{"MySQL", "PostgreSQL"});
-        JTextField dbNameField = new JTextField();
-        JTextField dbUserField = new JTextField();
-        JPasswordField dbPasswordField = new JPasswordField();
+        // Etiqueta y campo para Nombre del Sitio
+        gbc.gridx = 0; gbc.gridy = 0;
+        panel.add(new JLabel("Nombre del Sitio:"), gbc);
+        gbc.gridx = 1;
+        sitioField = new JTextField(20);
+        panel.add(sitioField, gbc);
 
-        JButton createClientButton = new JButton("Crear Cliente");
+        // Etiqueta y campo para Usuario FTP
+        gbc.gridx = 0; gbc.gridy = 1;
+        panel.add(new JLabel("Usuario FTP:"), gbc);
+        gbc.gridx = 1;
+        ftpUserField = new JTextField(20);
+        panel.add(ftpUserField, gbc);
 
-        panel.add(new JLabel("Nombre del Sitio:"));
-        panel.add(siteNameField);
-        panel.add(new JLabel("Usuario FTP:"));
-        panel.add(ftpUserField);
-        panel.add(new JLabel("Contraseña FTP:"));
-        panel.add(ftpPasswordField);
-        panel.add(new JLabel("Cuota (MB):"));
-        panel.add(quotaField);
-        panel.add(new JLabel("Gestor de BD:"));
-        panel.add(dbTypeBox);
-        panel.add(new JLabel("Nombre de la BD:"));
-        panel.add(dbNameField);
-        panel.add(new JLabel("Usuario de la BD:"));
-        panel.add(dbUserField);
-        panel.add(new JLabel("Contraseña de la BD:"));
-        panel.add(dbPasswordField);
-        panel.add(createClientButton);
+        // Etiqueta y campo para Contraseña FTP
+        gbc.gridx = 0; gbc.gridy = 2;
+        panel.add(new JLabel("Contraseña FTP:"), gbc);
+        gbc.gridx = 1;
+        ftpPasswordField = new JPasswordField(20);
+        panel.add(ftpPasswordField, gbc);
 
-        createClientButton.addActionListener(e -> {
-            String siteName = siteNameField.getText();
-            String ftpUser = ftpUserField.getText();
-            String ftpPassword = new String(ftpPasswordField.getPassword());
-            int quota = Integer.parseInt(quotaField.getText());
-            String dbType = (String) dbTypeBox.getSelectedItem();
-            String dbName = dbNameField.getText();
-            String dbUser = dbUserField.getText();
-            String dbPassword = new String(dbPasswordField.getPassword());
+        // Etiqueta y campo para Cuota
+        gbc.gridx = 0; gbc.gridy = 3;
+        panel.add(new JLabel("Cuota (MB):"), gbc);
+        gbc.gridx = 1;
+        cuotaField = new JTextField(20);
+        panel.add(cuotaField, gbc);
 
-            HostingManager manager = new HostingManager();
-            boolean success = manager.crearCliente(siteName, ftpUser, ftpPassword, quota, dbType, dbName, dbUser, dbPassword);
-            JOptionPane.showMessageDialog(panel, success ? "Cliente creado exitosamente." : "Error al crear el cliente.");
+        // Etiqueta y selector para Disco
+        gbc.gridx = 0; gbc.gridy = 4;
+        panel.add(new JLabel("Disco:"), gbc);
+        gbc.gridx = 1;
+        discoSelector = new JComboBox<>(obtenerDiscosDisponibles());
+        panel.add(discoSelector, gbc);
+
+        // Etiqueta y selector para Tipo de Base de Datos
+        gbc.gridx = 0; gbc.gridy = 5;
+        panel.add(new JLabel("Gestor de Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbSelector = new JComboBox<>(new String[]{"MySQL", "MariaDB", "PostgreSQL"});
+        panel.add(dbSelector, gbc);
+
+        // Etiqueta y campo para Nombre de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 6;
+        panel.add(new JLabel("Nombre de la Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbNameField = new JTextField(20);
+        panel.add(dbNameField, gbc);
+
+        // Etiqueta y campo para Usuario de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 7;
+        panel.add(new JLabel("Usuario Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbUserField = new JTextField(20);
+        panel.add(dbUserField, gbc);
+
+        // Etiqueta y campo para Contraseña de la Base de Datos
+        gbc.gridx = 0; gbc.gridy = 8;
+        panel.add(new JLabel("Contraseña Base de Datos:"), gbc);
+        gbc.gridx = 1;
+        dbPasswordField = new JPasswordField(20);
+        panel.add(dbPasswordField, gbc);
+
+        // Botón para Crear Usuario
+        gbc.gridx = 0; gbc.gridy = 9; gbc.gridwidth = 2;
+        JButton crearBtn = new JButton("Crear Cliente");
+        crearBtn.setBackground(new Color(76, 175, 80));
+        crearBtn.setForeground(Color.BLACK);
+        crearBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        crearBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                crearCliente();
+            }
         });
+        panel.add(crearBtn, gbc);
 
         return panel;
     }
 
-    private static JPanel createPartitionPanel() {
-        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
-
-        // Campos para Gestión de Particiones
-        JTextField diskField = new JTextField();
-        JTextField startField = new JTextField();
-        JTextField endField = new JTextField();
-        JComboBox<String> fileSystemBox = new JComboBox<>(new String[]{"ext4", "xfs", "ntfs"});
-        JTextField mountPointField = new JTextField();
-
-        JButton createPartitionButton = new JButton("Crear Partición");
-        JButton listDisksButton = new JButton("Listar Discos");
-
-        panel.add(new JLabel("Disco (e.g., /dev/sdb):"));
-        panel.add(diskField);
-        panel.add(new JLabel("Inicio (e.g., 0%):"));
-        panel.add(startField);
-        panel.add(new JLabel("Fin (e.g., 50%):"));
-        panel.add(endField);
-        panel.add(new JLabel("Sistema de Archivos:"));
-        panel.add(fileSystemBox);
-        panel.add(new JLabel("Punto de Montaje:"));
-        panel.add(mountPointField);
-        panel.add(createPartitionButton);
-        panel.add(listDisksButton);
-
-        createPartitionButton.addActionListener(e -> {
-            String disk = diskField.getText();
-            String start = startField.getText();
-            String end = endField.getText();
-            String fileSystem = (String) fileSystemBox.getSelectedItem();
-            String mountPoint = mountPointField.getText();
-
-            PartitionManager partitionManager = new PartitionManager();
-            boolean success = partitionManager.crearParticion(disk, start, end, fileSystem, mountPoint);
-            JOptionPane.showMessageDialog(panel, success ? "Partición creada exitosamente." : "Error al crear la partición.");
-        });
-
-        listDisksButton.addActionListener(e -> {
-            PartitionManager partitionManager = new PartitionManager();
-            String disks = partitionManager.listarDiscos();
-            JOptionPane.showMessageDialog(panel, disks);
-        });
-
+    private JPanel crearParticionesPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        JLabel infoLabel = new JLabel("Aquí puedes gestionar particiones manualmente.");
+        infoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(infoLabel, BorderLayout.CENTER);
         return panel;
+    }
+
+    private String[] obtenerDiscosDisponibles() {
+        // Por simplicidad, discos simulados
+        return new String[]{"/dev/sda", "/dev/sdb", "/dev/sdc"};
+    }
+
+    private void crearCliente() {
+        String nombreSitio = sitioField.getText();
+        String usuarioFtp = ftpUserField.getText();
+        String passwordFtp = new String(ftpPasswordField.getPassword());
+        String cuotaStr = cuotaField.getText();
+        String disco = (String) discoSelector.getSelectedItem();
+        String gestorBd = (String) dbSelector.getSelectedItem();
+        String nombreBd = dbNameField.getText();
+        String usuarioBd = dbUserField.getText();
+        String passwordBd = new String(dbPasswordField.getPassword());
+
+        // Validación de campos
+        if (nombreSitio.isEmpty() || usuarioFtp.isEmpty() || passwordFtp.isEmpty() || cuotaStr.isEmpty() || 
+            nombreBd.isEmpty() || usuarioBd.isEmpty() || passwordBd.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Todos los campos son requeridos.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int cuota;
+        try {
+            cuota = Integer.parseInt(cuotaStr);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "La cuota debe ser un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Crear cliente a través de la lógica
+        boolean success = manager.crearCliente(nombreSitio, usuarioFtp, passwordFtp, cuota, disco, gestorBd, nombreBd, usuarioBd, passwordBd);
+
+        if (success) {
+            JOptionPane.showMessageDialog(this, "Cliente creado exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Hubo un error al crear el cliente.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            HostingManagerApp app = new HostingManagerApp();
+            app.setVisible(true);
+        });
     }
 }
